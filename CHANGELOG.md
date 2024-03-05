@@ -1,3 +1,33 @@
+## 1.7.0 / 2024-01-18
+
+* [FEATURE] UI: Keep expansion state on page refresh. #581
+* [SECURITY] Build precompiled binaries with Go v1.21.6 to avoid security issues with previous Go releases.
+* [BUGFIX] Update dependencies to pull in possibly relevant bugfixes.
+
+## 1.6.2 / 2023-09-13
+
+* [SECURITY] Build precompiled binaries with Go v1.21.1 to avoid [security issues with Go v1.21.0](https://groups.google.com/g/golang-announce/c/Fm51GRLNRvM).
+
+## 1.6.1 / 2023-09-05
+
+* [SECURITY] Build precompiled binaries with current Go version (1.21.0) to avoid known bugs in older Go versions.
+* [BUGFIX] Update dependencies to pull in possibly relevant bugfixes.
+
+## 1.6.0 / 2023-05-25
+
+* [FEATURE] Add snappy encoding support for `/metrics` endpoint. #518
+* [ENHANCEMENT] Add pre-built binaries for the s390x architecture. #537
+* [BUGFIX] Fix possible leak of a file handle when using compression. #518
+
+## 1.5.1 / 2022-11-29
+
+* [SECURITY] Fix basic authentication bypass vulnerability (CVE-2022-46146). #516
+
+## 1.5.0 / 2022-11-24
+
+* [FEATURE] Add multiple listeners and systemd socket support. #512
+* [FEATURE] Accept a gzip'd body of a POST or PUT request. #477
+
 ## 1.4.3 / 2022-05-30
 
 * [BUGFIX] Update dependencies to pull in possibly relevant bugfixes.

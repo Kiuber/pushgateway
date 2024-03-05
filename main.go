@@ -14,9 +14,10 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
-	"net"
+	"io"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
@@ -27,8 +28,10 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/golang/snappy"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
@@ -36,7 +39,6 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	dto "github.com/prometheus/client_model/go"
 	promlogflag "github.com/prometheus/common/promlog/flag"
@@ -61,8 +63,7 @@ func (lf logFunc) Println(v ...interface{}) {
 func main() {
 	var (
 		app                 = kingpin.New(filepath.Base(os.Args[0]), "The Pushgateway")
-		webConfig           = webflag.AddFlags(app)
-		listenAddress       = app.Flag("web.listen-address", "Address to listen on for the web interface, API, and telemetry.").Default(":9091").String()
+		webConfig           = webflag.AddFlags(app, ":9091")
 		metricsPath         = app.Flag("web.telemetry-path", "Path under which to expose metrics.").Default("/metrics").String()
 		externalURL         = app.Flag("web.external-url", "The URL under which the Pushgateway is externally reachable.").Default("").URL()
 		routePrefix         = app.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to the path of --web.external-url.").Default("").String()
@@ -137,13 +138,6 @@ func main() {
 	// Re-enable pprof.
 	r.Get(*routePrefix+"/debug/pprof/*pprof", handlePprof)
 
-	level.Info(logger).Log("listen_address", *listenAddress)
-	l, err := net.Listen("tcp", *listenAddress)
-	if err != nil {
-		level.Error(logger).Log("err", err)
-		os.Exit(1)
-	}
-
 	quitCh := make(chan struct{})
 	quitHandler := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Requesting termination... Goodbye!")
@@ -169,7 +163,7 @@ func main() {
 	})
 
 	mux := http.NewServeMux()
-	mux.Handle("/", r)
+	mux.Handle("/", decodeRequest(r))
 
 	buildInfo := map[string]string{
 		"version":   version.Version,
@@ -195,13 +189,10 @@ func main() {
 
 	mux.Handle(apiPath+"/v1/", http.StripPrefix(apiPath+"/v1", av1))
 
-	server := &http.Server{
-		Addr:    *listenAddress,
-		Handler: mux,
-	}
+	server := &http.Server{Handler: mux}
 
 	go shutdownServerOnQuit(server, quitCh, logger)
-	err = web.Serve(l, server, *webConfig, logger)
+	err := web.ListenAndServe(server, webConfig, logger)
 
 	// In the case of a graceful shutdown, do not log the error.
 	if err == http.ErrServerClosed {
@@ -213,6 +204,28 @@ func main() {
 	if err := ms.Shutdown(); err != nil {
 		level.Error(logger).Log("msg", "problem shutting down metric storage", "err", err)
 	}
+}
+
+func decodeRequest(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close() // Make sure the underlying io.Reader is closed.
+		switch contentEncoding := r.Header.Get("Content-Encoding"); strings.ToLower(contentEncoding) {
+		case "gzip":
+			gr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer gr.Close()
+			r.Body = gr
+		case "snappy":
+			r.Body = io.NopCloser(snappy.NewReader(r.Body))
+		default:
+			// Do nothing.
+		}
+
+		h.ServeHTTP(w, r)
+	})
 }
 
 func handlePprof(w http.ResponseWriter, r *http.Request) {
@@ -239,12 +252,15 @@ func computeRoutePrefix(prefix string, externalURL *url.URL) string {
 	}
 
 	if prefix == "/" {
-		prefix = ""
+		return ""
 	}
 
-	if prefix != "" {
-		prefix = "/" + strings.Trim(prefix, "/")
+	// Ensure prefix starts with "/".
+	if !strings.HasPrefix(prefix, "/") {
+		prefix = "/" + prefix
 	}
+
+	prefix = strings.TrimSuffix(prefix, "/")
 
 	return prefix
 }

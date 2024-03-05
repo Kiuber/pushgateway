@@ -17,7 +17,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -405,7 +404,7 @@ func (dms *DiskMetricStore) persist() error {
 	if dms.persistenceFile == "" {
 		return nil
 	}
-	f, err := ioutil.TempFile(
+	f, err := os.CreateTemp(
 		path.Dir(dms.persistenceFile),
 		path.Base(dms.persistenceFile)+".in_progress.",
 	)
