@@ -1,3 +1,4 @@
+from echobox.tool import file
 from echobox.tool import functocli
 from echobox.app.devops import DevOpsApp
 
@@ -15,7 +16,9 @@ class App(DevOpsApp):
         self.shell_run(f'git fetch {remote_name}')
         self.shell_run(f'git merge {tag}')
 
-    def build_image(self, version, platform='linux/amd64', push=False):
+    def build_image(self, version=None, platform='linux/amd64', push=False):
+        version = file.file_get_contents(f'{self.root_dir}/VERSION').strip() if not version else version
+
         image_tag = f'{version}-ttl'
         image_name = f'kiuber/{self.app_name}'
         image = f'{image_name}:{image_tag}'
