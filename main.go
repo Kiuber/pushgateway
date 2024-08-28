@@ -33,6 +33,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/golang/snappy"
 	"github.com/prometheus/client_golang/prometheus"
+	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/route"
@@ -50,7 +51,7 @@ import (
 )
 
 func init() {
-	prometheus.MustRegister(version.NewCollector("pushgateway"))
+	prometheus.MustRegister(versioncollector.NewCollector("pushgateway"))
 }
 
 // logFunc in an adaptor to plug gokit logging into promhttp.HandlerOpts.
@@ -62,7 +63,7 @@ func (lf logFunc) Println(v ...interface{}) {
 
 func main() {
 	var (
-		app                 = kingpin.New(filepath.Base(os.Args[0]), "The Pushgateway")
+		app                 = kingpin.New(filepath.Base(os.Args[0]), "The Pushgateway").UsageWriter(os.Stdout)
 		webConfig           = webflag.AddFlags(app, ":9091")
 		metricsPath         = app.Flag("web.telemetry-path", "Path under which to expose metrics.").Default("/metrics").String()
 		externalURL         = app.Flag("web.external-url", "The URL under which the Pushgateway is externally reachable.").Default("").URL()
