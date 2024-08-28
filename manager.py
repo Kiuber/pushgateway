@@ -20,11 +20,10 @@ class App(DevOpsApp):
         version = file.file_get_contents(f'{self.root_dir}/VERSION').strip() if not version else version
 
         image_tag = f'{version}-ttl'
-        image_name = f'kiuber/{self.app_name}'
-        image = f'{image_name}:{image_tag}'
+        image_name = f'{self.app_name}'
         self.shell_run(f'PREFIX=./.build/{platform.replace("/", "-")} make build')
 
-        env = f'DOCKER_ARCHS=amd64 DOCKER_IMAGE_NAME={image_name} SANITIZED_DOCKER_IMAGE_TAG="" DOCKER_IMAGE_TAG={image_tag}'
+        env = f'DOCKER_ARCHS=amd64 DOCKER_REPO=kiuber DOCKER_IMAGE_NAME={image_name} SANITIZED_DOCKER_IMAGE_TAG="" DOCKER_IMAGE_TAG={image_tag}'
         self.shell_run(f'{env} make common-docker')
 
         if push:
