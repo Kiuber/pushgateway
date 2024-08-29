@@ -32,3 +32,8 @@ class App(DevOpsApp):
 
 if __name__ == '__main__':
     functocli.run_app(App)
+
+'''
+build on linux
+python manager.py --build_image
+'''
